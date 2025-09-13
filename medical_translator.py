@@ -9,9 +9,18 @@ load_dotenv()
 class MedicalTranslator:
     def __init__(self):
         """Initialize the Claude API client"""
-        self.client = anthropic.Client(
-            api_key=os.getenv("ANTHROPIC_API_KEY")
-        )
+        try:
+            # Try new version first
+            self.client = anthropic.Anthropic(
+                api_key=os.getenv("ANTHROPIC_API_KEY")
+            )
+            self.use_messages_api = True
+        except TypeError:
+            # Fall back to older version
+            self.client = anthropic.Client(
+                api_key=os.getenv("ANTHROPIC_API_KEY")
+            )
+            self.use_messages_api = False
         
     def translate_to_storybook(self, medical_text: str) -> Optional[str]:
         """
@@ -43,14 +52,27 @@ Please create a short storybook passage (2-3 paragraphs) that explains this medi
 Format your response as a story with a title.
 """
 
-            message = self.client.completions.create(
-                model="claude-2",
-                max_tokens_to_sample=1000,
-                temperature=0.7,
-                prompt=f"\n\nHuman: {prompt}\n\nAssistant:"
-            )
-            
-            return message.completion
+            if self.use_messages_api:
+                message = self.client.messages.create(
+                    model="claude-3-sonnet-20240229",
+                    max_tokens=1000,
+                    temperature=0.7,
+                    messages=[
+                        {
+                            "role": "user",
+                            "content": prompt
+                        }
+                    ]
+                )
+                return message.content[0].text
+            else:
+                message = self.client.completions.create(
+                    model="claude-2",
+                    max_tokens_to_sample=1000,
+                    temperature=0.7,
+                    prompt=f"\n\nHuman: {prompt}\n\nAssistant:"
+                )
+                return message.completion
             
         except Exception as e:
             print(f"Error translating medical text: {e}")
@@ -80,14 +102,27 @@ Medical text:
 Please provide a concise, informative explanation.
 """
 
-            message = self.client.completions.create(
-                model="claude-2",
-                max_tokens_to_sample=800,
-                temperature=0.3,
-                prompt=f"\n\nHuman: {prompt}\n\nAssistant:"
-            )
-            
-            return message.completion
+            if self.use_messages_api:
+                message = self.client.messages.create(
+                    model="claude-3-sonnet-20240229",
+                    max_tokens=800,
+                    temperature=0.3,
+                    messages=[
+                        {
+                            "role": "user",
+                            "content": prompt
+                        }
+                    ]
+                )
+                return message.content[0].text
+            else:
+                message = self.client.completions.create(
+                    model="claude-2",
+                    max_tokens_to_sample=800,
+                    temperature=0.3,
+                    prompt=f"\n\nHuman: {prompt}\n\nAssistant:"
+                )
+                return message.completion
             
         except Exception as e:
             print(f"Error getting medical explanation: {e}")
